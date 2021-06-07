@@ -146,20 +146,21 @@ import io
 import ctypes
 
 log_path = os.getenv('TIKA_LOG_PATH', tempfile.gettempdir())
-log_file = os.path.join(log_path, 'tika.log')
+log_file = os.path.join(log_path, os.getenv('TIKA_LOG_FILE', 'tika.log'))
 
 logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
 log = logging.getLogger('tika.tika')
 
-# File logs
-fileHandler = logging.FileHandler(log_file)
-fileHandler.setFormatter(logFormatter)
-log.addHandler(fileHandler)
+if os.getenv('TIKA_LOG_FILE', 'tika.log'):
+    # File logs
+    fileHandler = logging.FileHandler(log_file)
+    fileHandler.setFormatter(logFormatter)
+    log.addHandler(fileHandler)
 
-# Stdout logs
-consoleHandler = logging.StreamHandler()
-consoleHandler.setFormatter(logFormatter)
-log.addHandler(consoleHandler)
+    # Stdout logs
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(logFormatter)
+    log.addHandler(consoleHandler)
 
 # Log level
 log.setLevel(logging.INFO)
@@ -504,7 +505,7 @@ def getConfig(option, serverEndpoint=ServerEndpoint, verbose=Verbose, tikaServer
 
 def callServer(verb, serverEndpoint, service, data, headers, verbose=Verbose, tikaServerJar=TikaServerJar,
                httpVerbs={'get': requests.get, 'put': requests.put, 'post': requests.post}, classpath=None,
-                rawResponse=False,config_path=None, requestOptions={}):
+               rawResponse=False,config_path=None, requestOptions={}):
     '''
     Call the Tika Server, do some error checking, and return the response.
     :param verb:
@@ -636,17 +637,21 @@ def startServer(tikaServerJar, java_path = TikaJava, java_args = TikaJavaArgs, s
         host = "0.0.0.0"
 
     if classpath:
-        classpath += ":" + tikaServerJar
+        if Windows:
+            classpath += ";" + tikaServerJar
+            classpath = "\"" + classpath + "\""
+        else:
+            classpath += ":" + tikaServerJar
     else:
         classpath = tikaServerJar
 
     # setup command string
     cmd_string = ""
     if not config_path:
-        cmd_string = '%s %s -cp %s org.apache.tika.server.TikaServerCli --port %s --host %s &' \
+        cmd_string = '%s %s -cp "%s" org.apache.tika.server.TikaServerCli --port %s --host %s &' \
                      % (java_path, java_args, classpath, port, host)
     else:
-        cmd_string = '%s %s -cp %s org.apache.tika.server.TikaServerCli --port %s --host %s --config %s &' \
+        cmd_string = '%s %s -cp "%s" org.apache.tika.server.TikaServerCli --port %s --host %s --config %s &' \
                      % (java_path, java_args, classpath, port, host, config_path)
 
     # Check that we can write to log path
